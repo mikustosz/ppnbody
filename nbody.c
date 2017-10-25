@@ -31,53 +31,47 @@ const real SOFTENING_SQUARED = 0.01f;
 #endif
 
 typedef struct { real x, y, z; }    real3;
-typedef struct { real x, y, z, w; } real4;
 
-real3 bodyBodyInteraction(real4 iPos, real4 jPos)
-{
-  real rx, ry, rz;
-
-  rx = jPos.x - iPos.x;
-  ry = jPos.y - iPos.y;
-  rz = jPos.z - iPos.z;
-
-  real distSqr = rx*rx+ry*ry+rz*rz;
-  distSqr += SOFTENING_SQUARED;
-
-  real s = jPos.w / POW(distSqr,3.0/2.0);
-
-  real3 f;
-  f.x = rx * s;
-  f.y = ry * s;
-  f.z = rz * s;
-
-  return f;
-}
-
-void integrate(real4 * out, real4 * in,
-               real3 * vel, real3 * force,
-               real    dt,  int n)
+void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,  
+			   real *Xout, real *Yout, real *Zout, real *Wout,
+               real3 *vel, real *forceX, real *forceY, real *forceZ,
+               real dt, int n)
 {
   int i, j;
   for (i = 0; i < n; i++)
   {
+  	#pragma omp simd
     for (j = i; j < n; j++)
     {
-      real3 ff = bodyBodyInteraction(in[i], in[j]);
-      force[i].x += ff.x;
-      force[i].y += ff.y;
-      force[i].z += ff.z;
+	  real rx, ry, rz;
 
-      force[j].x -= ff.x;
-      force[j].y -= ff.y;
-      force[j].z -= ff.z;
+	  rx = Xin[j] - Xin[i];
+	  ry = Yin[j] - Yin[i];
+	  rz = Zin[j] - Zin[i];
+
+	  real distSqr = rx*rx + ry*ry + rz*rz;
+	  distSqr += SOFTENING_SQUARED;
+
+	  real s = Win[j] / POW(distSqr, 3.0/2.0);
+
+	  real fx = rx * s;
+	  real fy = ry * s;
+	  real fz = rz * s;
+
+      forceX[i] += fx;
+      forceY[i] += fy;
+      forceZ[i] += fz;
+
+      forceX[j] -= fx;
+      forceY[j] -= fy;
+      forceZ[j] -= fz;
     }
   }
 
   for (i = 0; i < n; i++)
   {
-    real fx = force[i].x, fy = force[i].y, fz = force[i].z;
-    real px = in[i].x,    py = in[i].y,    pz = in[i].z,    invMass = in[i].w;
+    real fx = forceX[i],  fy = forceY[i],  fz = forceZ[i];
+    real px = Xin[i],     py = Yin[i],     pz = Zin[i], invMass = Win[i];
     real vx = vel[i].x,   vy = vel[i].y,   vz = vel[i].z;
 
     // acceleration = force / mass; 
@@ -91,10 +85,10 @@ void integrate(real4 * out, real4 * in,
     py += vy * dt;
     pz += vz * dt;
 
-    out[i].x = px;
-    out[i].y = py;
-    out[i].z = pz;
-    out[i].w = invMass;
+    Xout[i] = px;
+    Yout[i] = py;
+    Zout[i] = pz;
+    Wout[i] = invMass;
 
     vel[i].x = vx;
     vel[i].y = vy;
@@ -126,8 +120,8 @@ void cross(real out[3], real v0[3], real v1[3])
   out[2] = v0[0]*v1[1]-v0[1]*v1[0];
 }
 
-void randomizeBodies(real4* pos, 
-                     real3* vel, 
+void randomizeBodies(real *X, real *Y, real *Z, real *W, 
+                     real3 *vel, 
                      float clusterScale, 
                      float velocityScale, 
                      int   n)
@@ -151,10 +145,10 @@ void randomizeBodies(real4* pos,
     if (len > 1)
       continue;
 
-    pos[i].x= point[0] * (inner + (outer - inner)*rand() / (real) RAND_MAX);
-    pos[i].y= point[1] * (inner + (outer - inner)*rand() / (real) RAND_MAX);
-    pos[i].z= point[2] * (inner + (outer - inner)*rand() / (real) RAND_MAX);
-    pos[i].w= 1.0f;
+    X[i]= point[0] * (inner + (outer - inner)*rand() / (real) RAND_MAX);
+    Y[i]= point[1] * (inner + (outer - inner)*rand() / (real) RAND_MAX);
+    Z[i]= point[2] * (inner + (outer - inner)*rand() / (real) RAND_MAX);
+    W[i]= 1.0f;
 
     x = 0.0f; 
     y = 0.0f; 
@@ -168,7 +162,7 @@ void randomizeBodies(real4* pos,
       axis[1] = point[0];
       normalize(axis);
     }
-    real vv[3] = {(real)pos[i].x, (real)pos[i].y, (real)pos[i].z};
+    real vv[3] = {X[i], Y[i], Z[i]};
     cross(vv, vv, axis);
     vel[i].x = vv[0] * vscale;
     vel[i].y = vv[1] * vscale;
@@ -178,15 +172,15 @@ void randomizeBodies(real4* pos,
   }
 }
 
-real3 average(real4 * p, int n)
+real3 average(real *X, real *Y, real *Z, int n)
 {
   int i;
   real3 av= {0.0, 0.0, 0.0};
   for (i = 0; i < n; i++)
   {
-    av.x += p[i].x;
-    av.y += p[i].y;
-    av.z += p[i].z;
+    av.x += X[i];
+    av.y += Y[i];
+    av.z += Z[i];
   }
   av.x /= n;
   av.y /= n;
@@ -203,27 +197,40 @@ int main(int argc, char** argv)
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) iterations = atoi(argv[2]);
 
-  real4 *pin  = (real4*)malloc(n * sizeof(real4));
-  real4 *pout = (real4*)malloc(n * sizeof(real4));
   real3 *v    = (real3*)malloc(n * sizeof(real3));
-  real3 *f    = (real3*)malloc(n * sizeof(real3));
 
-  randomizeBodies(pin, v,  1.54f, 8.0f, n);
+  real *fx = (real*)malloc(n * sizeof(real));
+  real *fy = (real*)malloc(n * sizeof(real));
+  real *fz = (real*)malloc(n * sizeof(real));
+
+  real *Xin  = (real*)malloc(n * sizeof(real));
+  real *Yin  = (real*)malloc(n * sizeof(real));
+  real *Zin  = (real*)malloc(n * sizeof(real));
+  real *Win  = (real*)malloc(n * sizeof(real));
+  real *Xout = (real*)malloc(n * sizeof(real));
+  real *Yout = (real*)malloc(n * sizeof(real));
+  real *Zout = (real*)malloc(n * sizeof(real));
+  real *Wout = (real*)malloc(n * sizeof(real));
+
+  randomizeBodies(Xin, Yin, Zin, Win, v,  1.54f, 8.0f, n);
 
   printf("n=%d bodies for %d iterations:\n", n, iterations);
 
   for (i = 0; i < iterations; i++)
   {
-    integrate (pout, pin, v, f, dt, n);
-    real4 *t = pout;
-    pout = pin; 
-    pin = t;
+    integrate(Xin, Yin, Zin, Win, Xout, Yout, Zout, Wout, v, fx, fy, fz, dt, n);
+    real *tx, *ty, *tz, *tw;
+    tx = Xout;  ty = Yout;  tz = Zout;  tw = Wout;
+    Xout = Xin; Yout = Yin; Zout = Zin; Wout = Win;
+    Xin = tx;   Yin = ty;   Zin = tz;   Win = tw;
   }
 
-  real3 p_av= average(pout, n);
+  real3 p_av = average(Xout, Yout, Zout, n);
   printf("Average position: (%f,%f,%f)\n", p_av.x, p_av.y, p_av.z);
 
-  free(pin);  free(pout);  free(v);  free(f);
+  free(v);    free(fx);   free(fy);   free(fz);
+  free(Xin);  free(Yin);  free(Zin);  free(Win);
+  free(Xout); free(Yout); free(Zout); free(Wout);
 
   return 0;
 }
