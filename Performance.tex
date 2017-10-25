@@ -1,0 +1,168 @@
+\documentclass[11pt]{article}
+\usepackage[english]{babel}
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{booktabs} %Tablas quedan mejor
+\usepackage{vmargin} %Márgenes
+\usepackage{hyperref}
+\setpapersize{A4}
+\setmargins{2.5cm}       % margen izquierdo
+{1.5cm}                        % margen superior
+{16.5cm}                      % anchura del texto
+{22.42cm}                    % altura del texto
+{10pt}                           % altura de los encabezados
+{1.5cm}                           % espacio entre el texto y los encabezados
+{0pt}                             % altura del pie de página
+{2cm}                           % espacio entre el texto y el pie de página
+
+\usepackage[none]{hyphenat} %No corta palabras al final de las lineas
+\usepackage{graphicx} %Imágenes
+\usepackage{subfigure} % subfiguras
+\graphicspath{{img/}} % Root for images
+\usepackage{wrapfig}
+\usepackage{siunitx} %Escribir números y unidades
+\usepackage{amsmath} %Mayor facilidad para escribir matrices y otros elementos matemáticos
+%\numberwithin{equation}{section} %En las ecuaciones se especifica también el capítulo
+\usepackage{xcolor} %Colores (\color{})
+\usepackage{lipsum}
+\usepackage{topcapt}
+\usepackage{parskip}
+\usepackage{braket}
+\usepackage{setspace}
+\usepackage{listings}
+\usepackage{fancyhdr} %Cabeceras
+\pagestyle{fancy} % seleccionamos un estilo
+
+
+\lhead{C programming and performance} %CAMBIA
+\rhead{Parallel programming} %CAMBIA
+
+
+
+
+
+\begin{document}
+
+\setstretch{1.5} % Line spacing of 1.5
+\setlength{\parskip}{5mm}
+
+\renewcommand{\tablename}{Tabla}
+
+\thispagestyle{empty} %Primera página sin número
+\begin{center}
+	
+	{\scshape\LARGE Parallel programming\par}
+	\vspace{0.5cm}
+	\rule{15cm}{0.8pt}\\
+	{\huge\bfseries C programming and performance: N-body\par}
+	\rule{15cm}{0.8pt}\\
+	\vspace{0.5cm}
+	{\large \textbf{ppM-1-4:} \itshape Jorge Pardillos, Michal Kustosz\par}
+
+\end{center}
+\setcounter{page}{1} %Empezamos a contar los números
+
+
+
+\pagenumbering{arabic} %Ponemos números normales (árabes) ya
+\pagestyle{fancy} % seleccionamos un estilo
+
+
+\section{Introduction}
+
+It has been presented a code in order to solve numerically the \emph{n-body} interaction problem (this problem can not be solved analytically).
+
+Our objetive is to understand the complexity of the code, how it works and how it is organised, and to perform optimisations changing the code or vectorising when possible, measuring the changes in the execution of the code.
+
+
+\section{Complexity of the algorithm}
+
+We start working with the baseline program that has been provided. Our first goal will be to perform an initial analysis on the code, finding which ``operation'' is the basic one of the program. It is trivial to se that the main part of the code is the following one:
+
+\begin{lstlisting}
+for t=0 to time
+	for i=0 to N
+		for j=0 to N
+			force[i] += bodyBodyInteraction(pos[i], pos[j]);
+	for i=0 to N
+		pos[i], vel[i] = advance_step( pos[i], vel[i], force[i], dt);
+\end{lstlisting}
+
+
+In the previous code there are two basic operations. The first one computes the new force acting on the body \emph{i}, we are computing this force N times for each body, so that leaves us with a total of $N^2$ operations for the body-body interaction. The second operation is updating the velocities, positions and forces for each body, but we are doing this operation N times, so the dominant operation will be the \emph{body-body interaction}, and the complexity is $N^2$. For high values of $N$:
+\begin{equation*}
+\mathcal{O}(N^2+N)\simeq\mathcal{O}(N^2)
+\end{equation*}
+
+\section{Baseline program: performance metrics}
+
+\textbf{We already have all the metrics for $t=100$ from $N=20$ to $N=20000$, both compilers with fast execution mode. We need to know what to do with that thing about checking that the output is correct.}
+
+\section{Effect of the problem size on performance}
+
+We already have the data to compare times, we can present a table and a graphic with the evolution (in log scale of course). We also have the executions with doubles instead of floats in order to compare both performances.
+
+We need to identify the parts of the algorithm that consume more time (I couldn't ask how yesterday, he was busy), we can plot the $\% $ of the time that the initialisation phase takes for every one of the different sizes, proving that it is less important for high values of N $\dots$.
+
+\section{Compiler selection}
+
+We have the data for t=100 and N=(20,200,2000,20000) with both compilers gcc and icc (fast mode). We also have them without -Ofast and -O3 just to see the difference.
+
+We just need to do graphics and tables.
+
+\section{Optimisations}
+
+I have a few ideas:
+\begin{itemize}
+\item Obvious one, just like $A_{new}$ and $A$ in the laplace program, we have to do the same with \emph{Pout} and \emph{Pin}
+\item In the body-body interaction fucntion: We can change $rx*rx +ry*ry +rz*rz$ for dot(real1, real2) or POW(rx,2) + ...
+\item In the integrate function, we could merge the two loops in $i$
+\end{itemize}
+
+\section{Vectorisation}
+
+I have no idea how to do this, the explanation the teacher did the last lecture was shit. But I have seen that there are a few parts of the code that could be vectorised.
+
+\section{Performance bottleneck}
+
+I'm not sure how to see this effect.
+
+\newpage
+
+%\appendix
+%\section{Ap1}
+%\label{Ap1}
+
+	
+																																								
+
+
+%\begin{thebibliography}{X}
+%	\bibitem{n} \textsc{Refractive index database}, \textit{http://refractiveindex.info}.
+%\end{thebibliography}
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
