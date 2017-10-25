@@ -61,15 +61,17 @@ void integrate(real4 * out, real4 * in,
   int i, j;
   for (i = 0; i < n; i++)
   {
-    real fx=0, fy=0, fz=0;
-
-    for (j = 0; j < n; j++)
+    for (j = i; j < n; j++)
     {
       real3 ff = bodyBodyInteraction(in[i], in[j]);
-      fx += ff.x;  fy += ff.y; fz += ff.z;
-    }
+      force[i].x += ff.x;
+      force[i].y += ff.y;
+      force[i].z += ff.z;
 
-    force[i].x = fx;  force[i].y = fy;  force[i].z = fz;
+      force[j].x -= ff.x;
+      force[j].y -= ff.y;
+      force[j].z -= ff.z;
+    }
   }
 
   for (i = 0; i < n; i++)
@@ -136,7 +138,6 @@ void randomizeBodies(real4* pos,
   float inner = 2.5f * scale;
   float outer = 4.0f * scale;
 
-  int p = 0, v=0;
   int i = 0;
   while (i < n)
   {
@@ -219,7 +220,7 @@ int main(int argc, char** argv)
     pin = t;
   }
 
-  real3 p_av= average( pout, n);
+  real3 p_av= average(pout, n);
   printf("Average position: (%f,%f,%f)\n", p_av.x, p_av.y, p_av.z);
 
   free(pin);  free(pout);  free(v);  free(f);
