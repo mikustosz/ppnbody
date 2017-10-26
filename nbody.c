@@ -40,14 +40,17 @@ void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,
   int i, j;
   for (i = 0; i < n; i++)
   {
+  	real Xini = Xin[i];
+  	real Yini = Yin[i];
+  	real Zini = Zin[i];
   	#pragma omp simd
-    for (j = i; j < n; j++)
+    for (j = i+1; j < n; j++)
     {
 	  real rx, ry, rz;
 
-	  rx = Xin[j] - Xin[i];
-	  ry = Yin[j] - Yin[i];
-	  rz = Zin[j] - Zin[i];
+	  rx = Xin[j] - Xini;
+	  ry = Yin[j] - Yini;
+	  rz = Zin[j] - Zini;
 
 	  real distSqr = rx*rx + ry*ry + rz*rz;
 	  distSqr += SOFTENING_SQUARED;
