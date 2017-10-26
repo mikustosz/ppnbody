@@ -49,25 +49,30 @@ void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,
   for (i = 0; i < n; i++)
   {
   	#pragma omp simd
+    forj { rxs[j] = Xin[j] - Xin[i]; }
+  	#pragma omp simd
+    forj { rys[j] = Yin[j] - Yin[i]; }
+  	#pragma omp simd
+    forj { rzs[j] = Zin[j] - Zin[i]; }
+  	#pragma omp simd
+    forj {
+      distSqrs[j] = rxs[j]*rxs[j] + rys[j]*rys[j] + rzs[j]*rzs[j];
+	  distSqrs[j] += SOFTENING_SQUARED;
+	}
+  	#pragma omp simd
+    forj { ss[j] = Win[j] / POW(distSqrs[j], 3.0/2.0); }
+
+  	#pragma omp simd
     forj
     {
-	  rxs[j] = Xin[j] - Xin[i];
-	  rys[j] = Yin[j] - Yin[i];
-	  rzs[j] = Zin[j] - Zin[i];
-
-	  distSqrs[j] = rxs[j]*rxs[j] + rys[j]*rys[j] + rzs[j]*rzs[j];
-	  distSqrs[j] += SOFTENING_SQUARED;
-
-	  ss[j] = Win[j] / POW(distSqrs[j], 3.0/2.0);
-
 	  // TODO optimize double multiplication?
       forceX[i] += rxs[j] * ss[j];
-      forceY[i] += rxs[j] * ss[j];
-      forceZ[i] += rxs[j] * ss[j];
+      forceY[i] += rys[j] * ss[j];
+      forceZ[i] += rzs[j] * ss[j];
 
       forceX[j] -= rxs[j] * ss[j];
-      forceY[j] -= rxs[j] * ss[j];
-      forceZ[j] -= rxs[j] * ss[j];
+      forceY[j] -= rys[j] * ss[j];
+      forceZ[j] -= rzs[j] * ss[j];
     }
   }
 
