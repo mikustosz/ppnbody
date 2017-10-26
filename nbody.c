@@ -23,6 +23,7 @@ typedef double real;
 const real SOFTENING_SQUARED = 0.01;
 #define RSQRT(x) 1.0 / sqrt((x))
 #define POW(x,y) pow((x),(y))
+#define forj for (j = i+1; j < n; j++)
 #else
 typedef float real;
 const real SOFTENING_SQUARED = 0.01f;
@@ -37,37 +38,36 @@ void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,
                real3 *vel, real *forceX, real *forceY, real *forceZ,
                real dt, int n)
 {
+
+  real *rxs = (real*)malloc(n * sizeof(real));
+  real *rys = (real*)malloc(n * sizeof(real));
+  real *rzs = (real*)malloc(n * sizeof(real));
+  real *distSqrs = (real*)malloc(n * sizeof(real));
+  real *ss = (real*)malloc(n * sizeof(real));
+
   int i, j;
   for (i = 0; i < n; i++)
   {
-  	real Xini = Xin[i];
-  	real Yini = Yin[i];
-  	real Zini = Zin[i];
   	#pragma omp simd
-    for (j = i+1; j < n; j++)
+    forj
     {
-	  real rx, ry, rz;
+	  rxs[j] = Xin[j] - Xin[i];
+	  rys[j] = Yin[j] - Yin[i];
+	  rzs[j] = Zin[j] - Zin[i];
 
-	  rx = Xin[j] - Xini;
-	  ry = Yin[j] - Yini;
-	  rz = Zin[j] - Zini;
+	  distSqrs[j] = rxs[j]*rxs[j] + rys[j]*rys[j] + rzs[j]*rzs[j];
+	  distSqrs[j] += SOFTENING_SQUARED;
 
-	  real distSqr = rx*rx + ry*ry + rz*rz;
-	  distSqr += SOFTENING_SQUARED;
+	  ss[j] = Win[j] / POW(distSqrs[j], 3.0/2.0);
 
-	  real s = Win[j] / POW(distSqr, 3.0/2.0);
+	  // TODO optimize double multiplication?
+      forceX[i] += rxs[j] * ss[j];
+      forceY[i] += rxs[j] * ss[j];
+      forceZ[i] += rxs[j] * ss[j];
 
-	  real fx = rx * s;
-	  real fy = ry * s;
-	  real fz = rz * s;
-
-      forceX[i] += fx;
-      forceY[i] += fy;
-      forceZ[i] += fz;
-
-      forceX[j] -= fx;
-      forceY[j] -= fy;
-      forceZ[j] -= fz;
+      forceX[j] -= rxs[j] * ss[j];
+      forceY[j] -= rxs[j] * ss[j];
+      forceZ[j] -= rxs[j] * ss[j];
     }
   }
 
@@ -97,6 +97,11 @@ void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,
     vel[i].y = vy;
     vel[i].z = vz;
   }
+  free(rxs);
+  free(rys);
+  free(rzs);
+  free(distSqrs);
+  free(ss);
 }
 
 real dot(real v0[3], real v1[3])
