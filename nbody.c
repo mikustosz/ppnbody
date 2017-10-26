@@ -23,28 +23,22 @@ typedef double real;
 const real SOFTENING_SQUARED = 0.01;
 #define RSQRT(x) 1.0 / sqrt((x))
 #define POW(x,y) pow((x),(y))
-#define forj for (j = i+1; j < n; j++)
 #else
 typedef float real;
 const real SOFTENING_SQUARED = 0.01f;
 #define RSQRT(x) 1.0f / sqrtf((x))
 #define POW(x,y) powf((x),(y))
 #endif
+#define forj for (j = i+1; j < n; j++)
 
 typedef struct { real x, y, z; }    real3;
 
 void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,  
 			   real *Xout, real *Yout, real *Zout, real *Wout,
                real3 *vel, real *forceX, real *forceY, real *forceZ,
-               real dt, int n)
+               real dt, int n,
+               real *rxs, real *rys, real *rzs, real *distSqrs, real *ss)
 {
-
-  real *rxs = (real*)malloc(n * sizeof(real));
-  real *rys = (real*)malloc(n * sizeof(real));
-  real *rzs = (real*)malloc(n * sizeof(real));
-  real *distSqrs = (real*)malloc(n * sizeof(real));
-  real *ss = (real*)malloc(n * sizeof(real));
-
   int i, j;
   for (i = 0; i < n; i++)
   {
@@ -102,11 +96,6 @@ void integrate(real *Xin,  real *Yin,  real *Zin,  real *Win,
     vel[i].y = vy;
     vel[i].z = vz;
   }
-  free(rxs);
-  free(rys);
-  free(rzs);
-  free(distSqrs);
-  free(ss);
 }
 
 real dot(real v0[3], real v1[3])
@@ -225,13 +214,20 @@ int main(int argc, char** argv)
   real *Zout = (real*)malloc(n * sizeof(real));
   real *Wout = (real*)malloc(n * sizeof(real));
 
+  // For integrate function
+  real *rxs = (real*)malloc(n * sizeof(real));
+  real *rys = (real*)malloc(n * sizeof(real));
+  real *rzs = (real*)malloc(n * sizeof(real));
+  real *distSqrs = (real*)malloc(n * sizeof(real));
+  real *ss = (real*)malloc(n * sizeof(real));
+
   randomizeBodies(Xin, Yin, Zin, Win, v,  1.54f, 8.0f, n);
 
   printf("n=%d bodies for %d iterations:\n", n, iterations);
 
   for (i = 0; i < iterations; i++)
   {
-    integrate(Xin, Yin, Zin, Win, Xout, Yout, Zout, Wout, v, fx, fy, fz, dt, n);
+    integrate(Xin, Yin, Zin, Win, Xout, Yout, Zout, Wout, v, fx, fy, fz, dt, n, rxs, rys, rzs, distSqrs, ss);
     real *tx, *ty, *tz, *tw;
     tx = Xout;  ty = Yout;  tz = Zout;  tw = Wout;
     Xout = Xin; Yout = Yin; Zout = Zin; Wout = Win;
@@ -244,6 +240,11 @@ int main(int argc, char** argv)
   free(v);    free(fx);   free(fy);   free(fz);
   free(Xin);  free(Yin);  free(Zin);  free(Win);
   free(Xout); free(Yout); free(Zout); free(Wout);
+  free(rxs);
+  free(rys);
+  free(rzs);
+  free(distSqrs);
+  free(ss);
 
   return 0;
 }
