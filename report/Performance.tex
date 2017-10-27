@@ -56,7 +56,7 @@
 	{\huge\bfseries C programming and performance: N-body\par}
 	\rule{15cm}{0.8pt}\\
 	\vspace{0.5cm}
-	{\large \textbf{ppM-1-4:} \itshape Jorge Pardillos, Michal Kustosz\par}
+	{\large \itshape Jorge Pardillos, Michal Kustosz\par}
 
 \end{center}
 \setcounter{page}{1} %Empezamos a contar los números
@@ -69,32 +69,31 @@
 
 \section{Introduction}
 
-It has been presented a code in order to solve numerically the \emph{n-body} interaction problem (this problem can not be solved analytically).
-
-Our objetive is to understand the complexity of the code, how it works and how it is organised, and to perform optimisations changing the code or vectorising when possible, measuring the changes in the execution of the code.
+The subject of this report is analysis of a program solving \emph{N-body} problem. This is done by a step-by-step simulation of celestial bodies in discrete time.
+Our objective is to understand the complexity of the code, the way the compiler works and also how it's executed by the machine. Also the task is to perform optimisations by changing the code or by vectorisation using SIMD architecture.
 
 \section{Complexity of the algorithm}
 
 We start working with the baseline program that has been provided. Our first goal will be to perform an initial analysis on the code, finding which ``operation'' is the basic one of the program. It is trivial to se that the main part of the code is the following one:
 
 \begin{lstlisting}
-for t=0 to time
-	for i=0 to N
-		for j=0 to N
-			force[i] += bodyBodyInteraction(pos[i], pos[j]);
-	for i=0 to N
-		pos[i], vel[i] = advance_step( pos[i], vel[i], force[i], dt);
+for t = 0 to MAX_TIME
+    for i = 0 to N
+        for j = 0 to N
+	      force[i] += bodyBodyInteraction(pos[i], pos[j]);
+    for i = 0 to N
+        pos[i], vel[i] = advance_step(pos[i], vel[i], force[i], dt);
 \end{lstlisting}
 
 
-In the previous code there are two basic operations. The first one computes the new force acting on the body \emph{i}, we are computing this force N times for each body, so that leaves us with a total of $N^2$ operations for the body-body interaction. The second operation is updating the velocities, positions and forces for each body, but we are doing this operation N times, so the dominant operation will be the \emph{body-body interaction}, and the complexity is $N^2$. For high values of $N$:
+In the code above there are two basic operations. The first one computes the new force acting on the body \emph{i}, we are computing this force N times for each body, so that leaves us with a total of $N^2$ operations for the body-body interaction. The second operation is updating the velocities, positions and forces for each body, but we are doing this operation N times, so the dominant operation will be the \emph{body-body interaction}, and the overall complexity is about $N^2$. In the big-O notation the complexity is
 \begin{equation*}
-\mathcal{O}(N^2+N)\simeq\mathcal{O}(N^2)
+\mathcal{O}(N^2+N) = \mathcal{O}(N^2)
 \end{equation*}
 
 \section{Baseline program}
 
-First of all, se study the effect of the size of our problem on the execution time and metrics. These are the metric results for the given size and iterations of the code:
+The next step consists of studying the effect of the size of the problem on it's execution time and metrics. These are the metric results for the given size and iterations of the code:
 \begin{table}[htbp]
 \centering
 \begin{tabular}{l c c c c c c c c r}
@@ -112,7 +111,7 @@ N	&	Cycles	&	GHz	&	Insns	&  Insns/cycle	&	cache-misses & Seconds	\\
 \caption{Metric results for the baseline program depending on size, for $t=100$. Compiler: gcc 6.1.0. $3.30$GHz}
 \end{table}
 
-In order to compare results, we can make the same simulations with the intel compiler. These are the results:
+In order to compare results, we can make the same simulations with the Intel C compiler (icc\,16.0.0). These are the results:
 \begin{table}[htbp]
 \centering
 \begin{tabular}{l c c c c c c c c r}
@@ -258,13 +257,13 @@ From now on we will only work with \emph{floats} (\emph{-DFP32=1}). We have done
 
 The first optimisation implemented is more related with physics than programming, but still it should be taken into account. It is based on the third physical law, for every action there is a force opposite and equal in magnitude. Thus there is no need to make two separate calculations for the force caused by the body $i$ or the body $j$ and viceversa, it is possible to use the same result on both of them.
 
-Taking into account this new approach, the interactions decrease to half of the original ones. The results are given in the in section \ref{results}.
+Taking into account this new approach, the main loop iterations decrease to half of the original ones, so the complexity is of the order of $N^2/2$. The results are given in the in section \ref{results}.
 
-The second ``optimisation'' is the vectorisation of the code exploiting  the \emph{SIMD} architecture. For that reason multiple changes to the code were applied.
+The second optimisation is the vectorisation of the code exploiting  the \emph{SIMD} architecture. For that reason multiple changes to the code were applied.
 
-In first place, the representation of data had been changed: instead of arrays of points (the data was previuously saved as an array of points, and each point had coordinates and mass), is has been arranged as arrays of coordinates, one for each direction axis. That allowed to process one array of continuous data at the time, and vectorise it efficiently. 
+In first place, the representation of data had been changed: instead of arrays of points (the data was previuously saved as an array of points, and each point had spacial 3D coordinates and mass), is has been arranged as arrays of coordinates, one for each direction axis. That allowed to process one array of continuous data at the time, and vectorise it efficiently, and also avoid cache misses.
 
-An example of the new code is given (\emph{forj} means a loop in the variable $j=0$,$1$,$2$):
+An example of the new code is given (\emph{forj} means a loop for j = i + 1 to $N$):
 \begin{lstlisting}
 #pragma omp simd 
 forj { rxs[j] = Xin[j] - Xin[i]; }
@@ -291,7 +290,7 @@ Program & Code eficienfy	&	IPC	&  Performance\\
 & (Steps/Inst) & (Steps/Inst) & (GSteps/sec)\\									
 \midrule
 Baseline (floats) & 0,034 & 0,861 & 0,096\\
-Reduction of interactions & 0,032 & 1,635 & 0,173\\
+Iteration reduction & 0,032 & 1,635 & 0,173\\
 Vectorisation & 0,033 & 1,872 & 0,198\\
 \bottomrule							
 \label{table:GCC4}
@@ -313,7 +312,7 @@ Program & Code eficienfy	&	IPC	&  Performance\\
 & (Steps/Inst) & (Steps/Inst) & (GSteps/sec)\\									
 \midrule
 Baseline (floats) & 0,071 & 1,541 & 0,355\\
-Reduction of interactions & 0,033 & 1,582 & 0,173\\
+Iteration reduction & 0,033 & 1,582 & 0,173\\
 Vectorisation & 0,053 & 1,633 & 0,281\\
 \bottomrule							
 \label{table:GCC6}
@@ -335,7 +334,7 @@ Program & Code eficienfy	&	IPC	&  Performance\\
 & (Steps/Inst) & (Steps/Inst) & (GSteps/sec)\\									
 \midrule
 Baseline (floats) & 0,068 & 2,100 & 0,460\\
-Reduction of interactions & 0,038 & 1,569 & 0,195\\
+Iteration reduction & 0,038 & 1,569 & 0,195\\
 Vectorisation & 0,114 & 2,112 & 0,782\\
 \bottomrule							
 \label{table:GCC6}
@@ -343,7 +342,7 @@ Vectorisation & 0,114 & 2,112 & 0,782\\
 \caption{Performance for the optimisations, for $t=100$ and $N=2000$. Compiler: intel 16.0.0. $3.30$GHz}
 \end{table}
 
-Finally, with the intel compiler it is visible that the original program is better than some of the previous cases. At the same time when the optimisations are implemented we find that the vectorisation is giving quite good results, improving significantly the performance, code efficiency and IPC. Processing one array at the time reduced significantly number of instructions and cycles in the program execution.
+Finally, with the Intel compiler it is visible that the original program is better than some of the previous cases. At the same time when the optimisations are implemented we find that the vectorisation is giving quite good results, improving significantly the performance, code efficiency and IPC. Processing one array at the time reduced significantly number of instructions and cycles in the program execution.
 
 Graphs for the evolution of the three parameters have been made:
 
@@ -365,6 +364,15 @@ Graphs for the evolution of the three parameters have been made:
    \caption{Performance metrics}
    \label{fig:example}
 \end{figure}
+\section{Summary}
+The result of the task is somehow unexpected. The first thing which is unusual is that the performance of the gcc/6.1.0 decreased after optimizations. It may be that this complier with -Ofast optimisations works much better since it is not said to him how to optimise in particular. \\
+The second thing to explain is the performance decrease for the two compliers based on gcc/6.1.0 after the first optimization in code. This may be due to the implementation, which during one run of the loop made two assignments to an array in different places in the memory:
+\begin{lstlisting}
+forceX[i] += tempXForce;
+forceX[j] -= tempXForce;
+\end{lstlisting}
+Maybe in this case it is more reasonable to make two times more iterations, but with updating consecutive memory blocks.\\
+The only success was achieved with Intel compiler after vectorizing the code. It seems that only this compiler can fully exploit the SIMD architecture of Intel processors. The performance boost after applying optimizations in code was significant.
 
 
 
